@@ -1,3 +1,7 @@
+if(LLVM_CXLMCPASS_LINK_INTO_TOOLS)
+  message(WARNING "Setting LLVM_CXLMCPASS_LINK_INTO_TOOLS=ON only makes sense for testing purpose")
+endif()
+
 # The plugin expects to not link against the Support and Core libraries,
 # but expects them to exist in the process loading the plugin. This doesn't
 # work with DLLs on Windows (where a shared library can't have undefined
