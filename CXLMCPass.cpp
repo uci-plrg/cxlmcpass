@@ -523,7 +523,7 @@ void CXLMCPass::chooseInstructionsToInstrument(
 		if (StoreInst *Store = dyn_cast<StoreInst>(I)) {
 			Value *Addr = Store->getPointerOperand();
 			if (!shouldInstrumentReadWriteFromAddress(I->getModule(), Addr)){
-				errs() << "Store: Should...." << '\n';
+				errs() << "Store: Should...." << *I << '\n';
 				continue;
 			}
 			WriteTargets.insert(Addr);
@@ -531,7 +531,7 @@ void CXLMCPass::chooseInstructionsToInstrument(
 			LoadInst *Load = cast<LoadInst>(I);
 			Value *Addr = Load->getPointerOperand();
 			if (!shouldInstrumentReadWriteFromAddress(I->getModule(), Addr)){
-				errs() << "Load: Should...." << '\n';
+				errs() << "Load: Should...." << *I << '\n';
 				continue;
 			}
 			//if (WriteTargets.count(Addr)) {
@@ -554,7 +554,7 @@ void CXLMCPass::chooseInstructionsToInstrument(
 			// referenced from a different thread and participate in a data race
 			// (see llvm/Analysis/CaptureTracking.h for details).
 			
-			//errs() << "Captured ..." << *Addr << '\n';
+			errs() << "Captured ..." << *Addr << '\n';
 			NumOmittedNonCaptured++;
 			continue;
 		}
@@ -705,7 +705,7 @@ bool CXLMCPass::instrumentCacheOp( Instruction *I, const DataLayout &DL){
 }
 
 void CXLMCPass::instrumentFenceOp(Instruction *I, const DataLayout &DL){
-	errs() << "Intrumenting Cache Fence: " << *I << "\n";
+	errs() << "Instrumenting Cache Fence: " << *I << "\n";
 	IRBuilder<> IRB(I);
 	Function *FenceFn = whichNVMFunction(I);
 	IRB.CreateCall(FenceFn);
@@ -733,35 +733,35 @@ bool CXLMCPass::instrumentLoadOrStore(Instruction *I, const DataLayout &DL) {
 	if (idx < 0)
 		return false;
 
-	if (IsWrite && isVtableAccess(I)) {
-		/* TODO
-		LLVM_DEBUG(dbgs() << "	VPTR : " << *I << "\n");
-		Value *StoredValue = cast<StoreInst>(I)->getValueOperand();
-		// StoredValue may be a vector type if we are storing several vptrs at once.
-		// In this case, just take the first element of the vector since this is
-		// enough to find vptr races.
-		if (isa<VectorType>(StoredValue->getType()))
-			StoredValue = IRB.CreateExtractElement(
-					StoredValue, ConstantInt::get(IRB.getIntTy(), 0));
-		if (StoredValue->getType()->isIntegerTy())
-			StoredValue = IRB.CreateIntToPtr(StoredValue, IRB.getIntPtrTy());
-		// Call TsanVptrUpdate.
-		IRB.CreateCall(TsanVptrUpdate,
-						{IRB.CreatePointerCast(Addr, IRB.getIntPtrTy()),
-							IRB.CreatePointerCast(StoredValue, IRB.getIntPtrTy())});
-		NumInstrumentedVtableWrites++;
-		*/
-		return true;
-	}
+	//if (IsWrite && isVtableAccess(I)) {
+	//	/* TODO
+	//	LLVM_DEBUG(dbgs() << "	VPTR : " << *I << "\n");
+	//	Value *StoredValue = cast<StoreInst>(I)->getValueOperand();
+	//	// StoredValue may be a vector type if we are storing several vptrs at once.
+	//	// In this case, just take the first element of the vector since this is
+	//	// enough to find vptr races.
+	//	if (isa<VectorType>(StoredValue->getType()))
+	//		StoredValue = IRB.CreateExtractElement(
+	//				StoredValue, ConstantInt::get(IRB.getIntTy(), 0));
+	//	if (StoredValue->getType()->isIntegerTy())
+	//		StoredValue = IRB.CreateIntToPtr(StoredValue, IRB.getIntPtrTy());
+	//	// Call TsanVptrUpdate.
+	//	IRB.CreateCall(TsanVptrUpdate,
+	//					{IRB.CreatePointerCast(Addr, IRB.getIntPtrTy()),
+	//						IRB.CreatePointerCast(StoredValue, IRB.getIntPtrTy())});
+	//	NumInstrumentedVtableWrites++;
+	//	*/
+	//	return true;
+	//}
 
-	if (!IsWrite && isVtableAccess(I)) {
-		/* TODO
-		IRB.CreateCall(TsanVptrLoad,
-						 IRB.CreatePointerCast(Addr, IRB.getIntPtrTy()));
-		NumInstrumentedVtableReads++;
-		*/
-		return true;
-	}
+	//if (!IsWrite && isVtableAccess(I)) {
+	//	/* TODO
+	//	IRB.CreateCall(TsanVptrLoad,
+	//					 IRB.CreatePointerCast(Addr, IRB.getIntPtrTy()));
+	//	NumInstrumentedVtableReads++;
+	//	*/
+	//	return true;
+	//}
 
 	// TODO: unaligned reads and writes
 	
@@ -797,7 +797,7 @@ bool CXLMCPass::instrumentLoadOrStore(Instruction *I, const DataLayout &DL) {
 
 #ifdef ENABLEATOMIC
 bool CXLMCPass::instrumentVolatile(Instruction * I, const DataLayout &DL) {
-	errs() << "Intrumenting Volatile: " << *I << "\tNumber of operands: "<< I->getNumOperands() <<"\n";
+	errs() << "Instrumenting Volatile: " << *I << "\tNumber of operands: "<< I->getNumOperands() <<"\n";
 	IRBuilder<> IRB(I);
 	Value *position = getPosition(I, IRB, true);
 	bool IsWrite = isa<StoreInst>(*I);
@@ -842,7 +842,7 @@ bool CXLMCPass::instrumentVolatile(Instruction * I, const DataLayout &DL) {
 #endif
 
 bool CXLMCPass::instrumentMemIntrinsic(Instruction *I) {
-	errs() << "Intrumenting Memory: " << *I << "\n";
+	errs() << "Instrumenting Memory: " << *I << "\n";
 	IRBuilder<> IRB(I);
 	if (MemSetInst *M = dyn_cast<MemSetInst>(I)) {
 		IRB.CreateCall(
@@ -865,7 +865,7 @@ bool CXLMCPass::instrumentMemIntrinsic(Instruction *I) {
 
 #ifdef ENABLEATOMIC
 bool CXLMCPass::instrumentAtomic(Instruction * I, const DataLayout &DL) {
-	errs() << "Intrumenting Atomic: " << *I << "\n";
+	errs() << "Instrumenting Atomic: " << *I << "\n";
 	IRBuilder<> IRB(I);
 
 	if (auto *CI = dyn_cast<CallInst>(I)) {
@@ -993,7 +993,7 @@ bool CXLMCPass::isAtomicCall(Instruction *I) {
 }
 
 bool CXLMCPass::instrumentAtomicCall(CallInst *CI, const DataLayout &DL) {
-	errs() << "Intrumenting Atomic Call: " << *CI << "\n";
+	errs() << "Instrumenting Atomic Call: " << *CI << "\n";
 	IRBuilder<> IRB(CI);
 	Function *fun = CI->getCalledFunction();
 	StringRef funName = fun->getName();
