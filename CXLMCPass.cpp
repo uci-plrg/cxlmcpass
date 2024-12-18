@@ -694,7 +694,7 @@ bool CXLMCPass::instrumentCacheOp( Instruction *I, const DataLayout &DL){
 	//	return false;
 
 	Type *ArgType = IRB.CreatePointerCast(Addr, Addr->getType())->getType();
-	if ( ArgType != IntPtrTy ) {
+	if (!ArgType->isPointerTy() ) {
                 return false;
         }
 	//IRB.CreateCall(CacheFn, IRB.CreatePointerCast(Addr, Addr->getType()));
