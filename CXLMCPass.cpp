@@ -34,6 +34,7 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
@@ -554,7 +555,7 @@ void CXLMCPass::chooseInstructionsToInstrument(
 			// referenced from a different thread and participate in a data race
 			// (see llvm/Analysis/CaptureTracking.h for details).
 			
-			errs() << "Captured ..." << *Addr << '\n';
+			//errs() << "Captured ..." << *Addr << '\n';
 			NumOmittedNonCaptured++;
 			continue;
 		}
@@ -1272,7 +1273,10 @@ bool CXLMCPass::instrumentAtomicCall(CallInst *CI, const DataLayout &DL) {
 
 		Value *order_succ, *order_fail;
 		if (isExplicit) {
-			order_succ = IRB.CreateBitOrPointerCast(parameters[3], OrdTy);
+			//avoid unsupported special case: a large struct is split and passed in as parameters 2 and 3
+			if (parameters[3]->getType() != OrdTy)
+				return false;
+			order_succ = parameters[3];
 
 			if (parameters.size() > 4) {
 				order_fail = IRB.CreateBitOrPointerCast(parameters[4], OrdTy);
@@ -1301,6 +1305,7 @@ bool CXLMCPass::instrumentAtomicCall(CallInst *CI, const DataLayout &DL) {
 		return true;
 	} else if ( funName.contains("compare_exchange_strong") ||
 				funName.contains("compare_exchange_weak") ) {
+
 		int Idx = getMemoryAccessFuncIndex(parameters[2], DL);
 		if (Idx < 0)
 			return false;
@@ -1315,7 +1320,10 @@ bool CXLMCPass::instrumentAtomicCall(CallInst *CI, const DataLayout &DL) {
 		Value *NewOperand = IRB.CreateBitOrPointerCast(parameters[2], Ty);
 
 		Value *order_succ, *order_fail;
-		order_succ = IRB.CreateBitOrPointerCast(parameters[3], OrdTy);
+		//avoid unsupported special case: a large struct is split and passed in as parameters 2 and 3
+		if (parameters[3]->getType() != OrdTy)
+			return false;
+		order_succ = parameters[3];
 
 		if (parameters.size() > 4) {
 			order_fail = IRB.CreateBitOrPointerCast(parameters[4], OrdTy);
