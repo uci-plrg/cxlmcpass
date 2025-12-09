@@ -95,7 +95,9 @@ STATISTIC(NumOmittedNonCaptured, "Number of accesses ignored due to capturing");
 // static const char *const kCDSInitName = "cds_init";
 
 Type * OrdTy;
+Type * Ptr8Ty;
 Type * IntPtrTy;
+int AddressSpace = 0; //only handle default address space
 
 Type * VoidTy;
 
@@ -295,7 +297,7 @@ void CXLMCPass::initializeCallbacks(Module &M) {
 		std::string BitSizeStr = utostr(BitSize);
 
 		Type *Ty = Type::getIntNTy(Ctx, BitSize);
-		Type *PtrTy = PointerType::get(Ty, IntPtrTy->getPointerAddressSpace());
+		Type *PtrTy = PointerType::get(Ty, AddressSpace);
 
 		SmallString<32> LoadName("cxlmc_load" + BitSizeStr);
 		SmallString<32> StoreName("cxlmc_store" + BitSizeStr);
@@ -308,27 +310,27 @@ void CXLMCPass::initializeCallbacks(Module &M) {
 		SmallString<32> AtomicStoreName("cxlmc_atomic_store" + BitSizeStr);
 #endif
 		CXLMCLoad[i]  = checkCXLMCPassInterfaceFunction(
-							M.getOrInsertFunction(LoadName, Attr, Ty, PtrTy, IntPtrTy).getCallee());
+							M.getOrInsertFunction(LoadName, Attr, Ty, PtrTy, Ptr8Ty).getCallee());
 		CXLMCStore[i] = checkCXLMCPassInterfaceFunction(
-							M.getOrInsertFunction(StoreName, Attr, VoidTy, PtrTy, Ty, IntPtrTy).getCallee());
+							M.getOrInsertFunction(StoreName, Attr, VoidTy, PtrTy, Ty, Ptr8Ty).getCallee());
 		
 #ifdef ENABLEATOMIC		
 		CXLMCVolatileLoad[i]  = checkCXLMCPassInterfaceFunction(
 								M.getOrInsertFunction(VolatileLoadName,
-								Attr, Ty, PtrTy, IntPtrTy).getCallee());
+								Attr, Ty, PtrTy, Ptr8Ty).getCallee());
 		CXLMCVolatileStore[i] = checkCXLMCPassInterfaceFunction(
 								M.getOrInsertFunction(VolatileStoreName, 
-								Attr, VoidTy, PtrTy, Ty, IntPtrTy).getCallee());
+								Attr, VoidTy, PtrTy, Ty, Ptr8Ty).getCallee());
 		
 		CXLMCAtomicInit[i] = checkCXLMCPassInterfaceFunction(
 							M.getOrInsertFunction(AtomicInitName, 
-							Attr, VoidTy, PtrTy, Ty, IntPtrTy).getCallee());
+							Attr, VoidTy, PtrTy, Ty, Ptr8Ty).getCallee());
 		CXLMCAtomicLoad[i]  = checkCXLMCPassInterfaceFunction(
 								M.getOrInsertFunction(AtomicLoadName, 
-								Attr, Ty, PtrTy, OrdTy, IntPtrTy).getCallee());
+								Attr, Ty, PtrTy, OrdTy, Ptr8Ty).getCallee());
 		CXLMCAtomicStore[i] = checkCXLMCPassInterfaceFunction(
 								M.getOrInsertFunction(AtomicStoreName, 
-								Attr, VoidTy, PtrTy, Ty, OrdTy, IntPtrTy).getCallee());
+								Attr, VoidTy, PtrTy, Ty, OrdTy, Ptr8Ty).getCallee());
 
 		for (unsigned op = AtomicRMWInst::FIRST_BINOP; 
 			op <= AtomicRMWInst::LAST_BINOP; ++op) {
@@ -353,7 +355,7 @@ void CXLMCPass::initializeCallbacks(Module &M) {
 			SmallString<32> AtomicRMWName("cxlmc_atomic" + NamePart + BitSizeStr);
 			CXLMCAtomicRMW[op][i] = checkCXLMCPassInterfaceFunction(
 									M.getOrInsertFunction(AtomicRMWName, 
-									Attr, Ty, PtrTy, Ty, OrdTy, IntPtrTy).getCallee());
+									Attr, Ty, PtrTy, Ty, OrdTy, Ptr8Ty).getCallee());
 		}
 
 		// only supportes strong version
@@ -361,29 +363,29 @@ void CXLMCPass::initializeCallbacks(Module &M) {
 		SmallString<32> AtomicCASName_V2("cxlmc_atomic_compare_exchange" + BitSizeStr + "_v2");
 		CXLMCAtomicCAS_V1[i] = checkCXLMCPassInterfaceFunction(
 								M.getOrInsertFunction(AtomicCASName_V1, 
-								Attr, Ty, PtrTy, Ty, Ty, OrdTy, OrdTy, IntPtrTy).getCallee());
+								Attr, Ty, PtrTy, Ty, Ty, OrdTy, OrdTy, Ptr8Ty).getCallee());
 		CXLMCAtomicCAS_V2[i] = checkCXLMCPassInterfaceFunction(
 								M.getOrInsertFunction(AtomicCASName_V2, 
-								Attr, Int1Ty, PtrTy, PtrTy, Ty, OrdTy, OrdTy, IntPtrTy).getCallee());
+								Attr, Int1Ty, PtrTy, PtrTy, Ty, OrdTy, OrdTy, Ptr8Ty).getCallee());
 #endif
 	}
 #ifdef ENABLEATOMIC
 	CXLMCAtomicThreadFence = checkCXLMCPassInterfaceFunction(
-			M.getOrInsertFunction("cxlmc_atomic_thread_fence", Attr, VoidTy, OrdTy, IntPtrTy).getCallee());
+			M.getOrInsertFunction("cxlmc_atomic_thread_fence", Attr, VoidTy, OrdTy, Ptr8Ty).getCallee());
 #endif
 	
 	MemmoveFn = checkCXLMCPassInterfaceFunction(
-					M.getOrInsertFunction("memmove", Attr, IntPtrTy, IntPtrTy,
-					IntPtrTy, IntPtrTy).getCallee());
+					M.getOrInsertFunction("memmove", Attr, Ptr8Ty, Ptr8Ty,
+					Ptr8Ty, IntPtrTy).getCallee());
 	MemcpyFn = checkCXLMCPassInterfaceFunction(
-					M.getOrInsertFunction("memcpy", Attr, IntPtrTy, IntPtrTy,
-					IntPtrTy, IntPtrTy).getCallee());
+					M.getOrInsertFunction("memcpy", Attr, Ptr8Ty, Ptr8Ty,
+					Ptr8Ty, IntPtrTy).getCallee());
 	MemsetFn = checkCXLMCPassInterfaceFunction(
-					M.getOrInsertFunction("memset", Attr, IntPtrTy, IntPtrTy,
+					M.getOrInsertFunction("memset", Attr, Ptr8Ty, Ptr8Ty,
 					Int32Ty, IntPtrTy).getCallee());
-	CLWBFn  = checkCXLMCPassInterfaceFunction(M.getOrInsertFunction("cxlmc_clwb", Attr, VoidTy, IntPtrTy).getCallee());
-	CLFlushFn  = checkCXLMCPassInterfaceFunction(M.getOrInsertFunction("cxlmc_clflush", Attr, VoidTy, IntPtrTy).getCallee());
-	CLFlushOptFn  = checkCXLMCPassInterfaceFunction(M.getOrInsertFunction("cxlmc_clflushopt", Attr, VoidTy, IntPtrTy).getCallee());
+	CLWBFn  = checkCXLMCPassInterfaceFunction(M.getOrInsertFunction("cxlmc_clwb", Attr, VoidTy, Ptr8Ty).getCallee());
+	CLFlushFn  = checkCXLMCPassInterfaceFunction(M.getOrInsertFunction("cxlmc_clflush", Attr, VoidTy, Ptr8Ty).getCallee());
+	CLFlushOptFn  = checkCXLMCPassInterfaceFunction(M.getOrInsertFunction("cxlmc_clflushopt", Attr, VoidTy, Ptr8Ty).getCallee());
 	MFenceFn  = checkCXLMCPassInterfaceFunction(M.getOrInsertFunction("cxlmc_mfence", Attr, VoidTy).getCallee());
 	SFenceFn  = checkCXLMCPassInterfaceFunction(M.getOrInsertFunction("cxlmc_sfence", Attr, VoidTy).getCallee());
 	LFenceFn  = checkCXLMCPassInterfaceFunction(M.getOrInsertFunction("cxlmc_lfence", Attr, VoidTy).getCallee());
@@ -391,7 +393,9 @@ void CXLMCPass::initializeCallbacks(Module &M) {
 
 bool CXLMCPass::doInitialization(Module &M) {
 	const DataLayout &DL = M.getDataLayout();
-	IntPtrTy = DL.getIntPtrType(M.getContext());
+	auto &Ctx = M.getContext();
+	Ptr8Ty = PointerType::get(Type::getInt8Ty(Ctx), AddressSpace);
+	IntPtrTy = DL.getIntPtrType(Ctx);
 	
 	// createSanitizerCtorAndInitFunctions is defined in "llvm/Transforms/Utils/ModuleUtils.h"
 	// We do not support it yet
@@ -770,7 +774,7 @@ bool CXLMCPass::instrumentLoadOrStore(Instruction *I, const DataLayout &DL) {
 	const unsigned byteSize = 1U << idx;
         const unsigned bitSize = byteSize * 8;
         Type *Ty = Type::getIntNTy(IRB.getContext(), bitSize);
-		Type *ptrTy = PointerType::get(Ty, IntPtrTy->getPointerAddressSpace());
+		Type *ptrTy = PointerType::get(Ty, AddressSpace);
 
 	if (StoreInst * SI = dyn_cast<StoreInst>(I)) {
 		errs() << "Instrumenting non-atomic store: " << *I << "\n";
@@ -815,7 +819,7 @@ bool CXLMCPass::instrumentVolatile(Instruction * I, const DataLayout &DL) {
 	const unsigned byteSize = 1U << idx;
 	const unsigned bitSize = byteSize * 8;
     Type *Ty = Type::getIntNTy(IRB.getContext(), bitSize);
-	Type *ptrTy = PointerType::get(Ty, IntPtrTy->getPointerAddressSpace());
+	Type *ptrTy = PointerType::get(Ty, AddressSpace);
 	if (LoadInst *LI = dyn_cast<LoadInst>(I)) {
 		assert( LI->isVolatile() );
 		Value *args[] = {IRB.CreatePointerCast(addr, ptrTy), position};
@@ -848,15 +852,15 @@ bool CXLMCPass::instrumentMemIntrinsic(Instruction *I) {
 	if (MemSetInst *M = dyn_cast<MemSetInst>(I)) {
 		IRB.CreateCall(
 			MemsetFn,
-			{IRB.CreatePointerCast(M->getArgOperand(0), IntPtrTy),
+			{IRB.CreatePointerCast(M->getArgOperand(0), Ptr8Ty),
 			 IRB.CreateIntCast(M->getArgOperand(1), IRB.getInt32Ty(), false),
 			 IRB.CreateIntCast(M->getArgOperand(2), IntPtrTy, false)});
 		I->eraseFromParent();
 	} else if (MemTransferInst *M = dyn_cast<MemTransferInst>(I)) {
 		IRB.CreateCall(
 			isa<MemCpyInst>(M) ? MemcpyFn : MemmoveFn,
-			{IRB.CreatePointerCast(M->getArgOperand(0), IntPtrTy),
-			 IRB.CreatePointerCast(M->getArgOperand(1), IntPtrTy),
+			{IRB.CreatePointerCast(M->getArgOperand(0), Ptr8Ty),
+			 IRB.CreatePointerCast(M->getArgOperand(1), Ptr8Ty),
 			 IRB.CreateIntCast(M->getArgOperand(2), IntPtrTy, false)});
 		I->eraseFromParent();
 	}
@@ -921,7 +925,7 @@ bool CXLMCPass::instrumentAtomic(Instruction * I, const DataLayout &DL) {
 		const unsigned ByteSize = 1U << Idx;
 		const unsigned BitSize = ByteSize * 8;
 		Type *Ty = Type::getIntNTy(IRB.getContext(), BitSize);
-	    Type *PtrTy = PointerType::get(Ty, IntPtrTy->getPointerAddressSpace());
+	    Type *PtrTy = PointerType::get(Ty, AddressSpace);
 
 		Value *CmpOperand = IRB.CreateBitOrPointerCast(CASI->getCompareOperand(), Ty);
 		Value *NewOperand = IRB.CreateBitOrPointerCast(CASI->getNewValOperand(), Ty);
@@ -1023,7 +1027,7 @@ bool CXLMCPass::instrumentAtomicCall(CallInst *CI, const DataLayout &DL) {
 		const unsigned ByteSize = 1U << Idx;
 		const unsigned BitSize = ByteSize * 8;
 		Type *Ty = Type::getIntNTy(IRB.getContext(), BitSize);
-	    Type *PtrTy = PointerType::get(Ty, IntPtrTy->getPointerAddressSpace());
+	    Type *PtrTy = PointerType::get(Ty, AddressSpace);
 
 		Value *ptr = IRB.CreatePointerCast(OrigPtr, PtrTy);
 		Value *val;
@@ -1050,7 +1054,7 @@ bool CXLMCPass::instrumentAtomicCall(CallInst *CI, const DataLayout &DL) {
 		const unsigned ByteSize = 1U << Idx;
 		const unsigned BitSize = ByteSize * 8;
 		Type *Ty = Type::getIntNTy(IRB.getContext(), BitSize);
-	    Type *PtrTy = PointerType::get(Ty, IntPtrTy->getPointerAddressSpace());
+	    Type *PtrTy = PointerType::get(Ty, AddressSpace);
 		Value *ptr = IRB.CreatePointerCast(OrigPtr, PtrTy);
 		Value *order;
 		if (isExplicit)
@@ -1073,7 +1077,7 @@ bool CXLMCPass::instrumentAtomicCall(CallInst *CI, const DataLayout &DL) {
 		const unsigned ByteSize = 1U << Idx;
 		const unsigned BitSize = ByteSize * 8;
 		Type *Ty = Type::getIntNTy(IRB.getContext(), BitSize);
-	    Type *PtrTy = PointerType::get(Ty, IntPtrTy->getPointerAddressSpace());
+	    Type *PtrTy = PointerType::get(Ty, AddressSpace);
 		// does this version of call always have an atomic order as an argument?
 		Value *ptr = IRB.CreatePointerCast(OrigPtr, PtrTy);
 		Value *order = IRB.CreateBitOrPointerCast(parameters[1], OrdTy);
@@ -1103,7 +1107,7 @@ bool CXLMCPass::instrumentAtomicCall(CallInst *CI, const DataLayout &DL) {
 		const unsigned ByteSize = 1U << Idx;
 		const unsigned BitSize = ByteSize * 8;
 		Type *Ty = Type::getIntNTy(IRB.getContext(), BitSize);
-	    Type *PtrTy = PointerType::get(Ty, IntPtrTy->getPointerAddressSpace());
+	    Type *PtrTy = PointerType::get(Ty, AddressSpace);
 
 		Value *ptr = IRB.CreatePointerCast(OrigPtr, PtrTy);
 		Value *val = IRB.CreatePointerCast(OrigVal, Ty);
@@ -1130,7 +1134,7 @@ bool CXLMCPass::instrumentAtomicCall(CallInst *CI, const DataLayout &DL) {
 		const unsigned ByteSize = 1U << Idx;
 		const unsigned BitSize = ByteSize * 8;
 		Type *Ty = Type::getIntNTy(IRB.getContext(), BitSize);
-	    Type *PtrTy = PointerType::get(Ty, IntPtrTy->getPointerAddressSpace());
+	    Type *PtrTy = PointerType::get(Ty, AddressSpace);
 
 		Value *ptr = IRB.CreatePointerCast(OrigPtr, PtrTy);
 		Value *val;
@@ -1139,7 +1143,7 @@ bool CXLMCPass::instrumentAtomicCall(CallInst *CI, const DataLayout &DL) {
 		else
 			val = IRB.CreateIntCast(OrigVal, Ty, true);
 
-		Value *order = IRB.CreateBitOrPointerCast(parameters[2], OrdTy);
+		Value *order = IRB.CreateIntCast(parameters[2], OrdTy, false);
 		Value *args[] = {ptr, val, order, position};
 
 		Instruction* funcInst = CallInst::Create(CXLMCAtomicStore[Idx], args);
@@ -1165,7 +1169,7 @@ bool CXLMCPass::instrumentAtomicCall(CallInst *CI, const DataLayout &DL) {
 		const unsigned ByteSize = 1U << Idx;
 		const unsigned BitSize = ByteSize * 8;
 		Type *Ty = Type::getIntNTy(IRB.getContext(), BitSize);
-	    Type *PtrTy = PointerType::get(Ty, IntPtrTy->getPointerAddressSpace());
+	    Type *PtrTy = PointerType::get(Ty, AddressSpace);
 
 		int op;
 		if ( funName.contains("_fetch_add") )
@@ -1234,7 +1238,7 @@ bool CXLMCPass::instrumentAtomicCall(CallInst *CI, const DataLayout &DL) {
 		const unsigned ByteSize = 1U << Idx;
 		const unsigned BitSize = ByteSize * 8;
 		Type *Ty = Type::getIntNTy(IRB.getContext(), BitSize);
-	    Type *PtrTy = PointerType::get(Ty, IntPtrTy->getPointerAddressSpace());
+	    Type *PtrTy = PointerType::get(Ty, AddressSpace);
 
 		Value *ptr = IRB.CreatePointerCast(OrigPtr, PtrTy);
 		Value *val;
@@ -1265,7 +1269,7 @@ bool CXLMCPass::instrumentAtomicCall(CallInst *CI, const DataLayout &DL) {
 		const unsigned ByteSize = 1U << Idx;
 		const unsigned BitSize = ByteSize * 8;
 		Type *Ty = Type::getIntNTy(IRB.getContext(), BitSize);
-	    Type *PtrTy = PointerType::get(Ty, IntPtrTy->getPointerAddressSpace());
+	    Type *PtrTy = PointerType::get(Ty, AddressSpace);
 
 		Value *Addr = IRB.CreatePointerCast(OrigPtr, PtrTy);
 		Value *CmpOperand = IRB.CreatePointerCast(parameters[1], PtrTy);
@@ -1313,7 +1317,7 @@ bool CXLMCPass::instrumentAtomicCall(CallInst *CI, const DataLayout &DL) {
 		const unsigned ByteSize = 1U << Idx;
 		const unsigned BitSize = ByteSize * 8;
 		Type *Ty = Type::getIntNTy(IRB.getContext(), BitSize);
-	    Type *PtrTy = PointerType::get(Ty, IntPtrTy->getPointerAddressSpace());
+	    Type *PtrTy = PointerType::get(Ty, AddressSpace);
 
 		Value *Addr = IRB.CreatePointerCast(OrigPtr, PtrTy);
 		Value *CmpOperand = IRB.CreatePointerCast(parameters[1], PtrTy);
